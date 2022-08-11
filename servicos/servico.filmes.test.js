@@ -1,60 +1,41 @@
-import { inserirFilme, limpar } from "./servico.filmes";
-import repositorio from "../repositorio/repositorio.filmes";
-
-jest.mock("../repositorio/repositorio.filmes", () => ({
-  inserir: jest.fn(),
-  getQtdeFilmes: jest.fn().mockReturnValue(0),
-  verificarFilme: jest.fn().mockReturnValue(false),
-}));
+import Knex from "knex";
+import { RepositorioFilmes } from "../repositorio/repositorio.filmes";
+import { ServicoFilmes } from "./servico.filmes";
+import { PostgreSqlContainer } from "testcontainers";
 
 describe("Inserir filmes", () => {
-  test("Deve permitir inserir um filme", () => {
-    repositorio.getQtdeFilmes.mockReturnValue(1);
-    const resultado = inserirFilme({
-      nome: "As tranças do Rei Careca",
-      ano: 2002,
+  let knex;
+  let servicoFilmes;
+  let repositorioFilmes;
+  let container;
+
+  beforeAll(async () => {
+    container = await new PostgreSqlContainer().start();
+    knex = Knex({
+      client: "pg",
+      connection: {
+        host: container.getHost(),
+        port: container.getPort(),
+        database: container.getDatabase(),
+        user: container.getUsername(),
+        password: container.getPassword(),
+      },
     });
-    expect(resultado).toBe(1);
+    await knex.migrate.latest();
+    await knex.seed.run();
+    repositorioFilmes = new RepositorioFilmes(knex);
+    servicoFilmes = new ServicoFilmes(repositorioFilmes);
   });
 
-  test("Não deve permitir um filme vazio", () => {
-    const filme = {};
-
-    expect(() => {
-      const resultado = inserirFilme(filme);
-    }).toThrow();
+  test("Deve permitir inserir um filme", async () => {
+    const { count: qtdeFilmesExistentes } = await servicoFilmes.getQtdeFilmes();
+    const novoFilme = { nome: "As tranças do Rei Careca", ano: 2002 };
+    const { count: resultado } = await servicoFilmes.inserirFilme(novoFilme);
+    expect(parseInt(resultado)).toBe(parseInt(qtdeFilmesExistentes) + 1);
   });
 
-  test("Deve permitir inserir vários filmes", () => {
-    const filme1 = {
-      nome: "As Branquelas",
-      ano: 2004,
-    };
-    const filme2 = {
-      nome: "Top Gun",
-      ano: 1986,
-    };
-    repositorio.getQtdeFilmes.mockReturnValue(2);
-    const resultado = inserirFilme(filme1, filme2);
-    expect(resultado).toBe(2);
-  });
-
-  test("Não deve permitir filmes ainda não lançados", () => {
-    expect(() => {
-      inserirFilme({
-        nome: "John Wick",
-        ano: 2023,
-      });
-    }).toThrow();
-  });
-
-  test("Não deve permitir filmes duplicados", () => {
-    repositorio.verificarFilme.mockReturnValue(true);
-    expect(() => {
-      inserirFilme({
-        nome: "Piratas do Caribe",
-        ano: 2003,
-      });
-    }).toThrow();
+  afterAll(async () => {
+    await knex.destroy();
+    await container.stop();
   });
 });

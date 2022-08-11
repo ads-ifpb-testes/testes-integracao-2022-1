@@ -1,18 +1,23 @@
-const repositorioFilmes = [];
+import Knex from "knex";
 
-const inserir = (filme) => {
-  repositorioFilmes.push(filme);
-};
+export class RepositorioFilmes {
+  constructor(knex) {
+    this.knex = knex;
+  }
 
-const verificarFilme = (filme) => {
-  return (
-    repositorioFilmes.findIndex(
-      (filmeBanco) =>
-        filmeBanco.ano === filme.ano && filmeBanco.nome === filme.nome
-    ) >= 0
-  );
-};
+  async inserir(filme) {
+    return this.knex("filme").insert(filme);
+  }
 
-const getQtdeFilmes = () => repositorioFilmes.length;
+  async getQtdeFilmes() {
+    return this.knex.from("filme").count().first();
+  }
 
-export default { inserir, getQtdeFilmes, verificarFilme };
+  async consultar(filme) {
+    return this.knex
+      .from("filme")
+      .where("nome", filme.nome)
+      .where("ano", filme.ano)
+      .first();
+  }
+}

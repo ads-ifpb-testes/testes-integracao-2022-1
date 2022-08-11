@@ -1,19 +1,28 @@
-import repositorio from "../repositorio/repositorio.filmes";
+import { RepositorioFilmes } from "../repositorio/repositorio.filmes";
 
-const inserirFilme = (...filmes) => {
-  filmes.forEach((filme) => {
-    if (filme && "nome" in filme && "ano" in filme) {
-      const anoCorrente = new Date().getFullYear();
-      if (filme.ano > anoCorrente) throw Error();
-      if (repositorio.verificarFilme(filme)) {
+export class ServicoFilmes {
+  constructor(repositorio) {
+    this.repositorio = repositorio;
+  }
+
+  async inserirFilme(...filmes) {
+    for (const filme of filmes) {
+      if (filme && "nome" in filme && "ano" in filme) {
+        const anoCorrente = new Date().getFullYear();
+        if (filme.ano > anoCorrente) throw Error();
+        const filmeExiste = await this.repositorio.consultar(filme);
+        if (filmeExiste) {
+          throw Error();
+        }
+        this.repositorio.inserir(filme);
+      } else {
         throw Error();
       }
-      repositorio.inserir(filme);
-    } else {
-      throw Error();
     }
-  });
-  return repositorio.getQtdeFilmes();
-};
+    return this.repositorio.getQtdeFilmes();
+  }
 
-export { inserirFilme };
+  async getQtdeFilmes() {
+    return this.repositorio.getQtdeFilmes();
+  }
+}
